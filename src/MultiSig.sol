@@ -1,6 +1,6 @@
 pragma solidity ^0.8.10;
 
-contract MultiSigWallet {
+contract MultiSig {
     event Deposit(address indexed sender, uint256 amount);
     event Submit(uint256 indexed txId);
     event Approve(address indexed owner, uint256 indexed txId);
@@ -32,17 +32,18 @@ contract MultiSigWallet {
     }
 
     modifier notApproved(uint256 _txId) {
-        require(!approved[tx][msg.sender], "tx already approved");
+        require(!approved[_txId][msg.sender], "tx already approved");
         _;
     }
 
     modifier notExecuted(uint256 _txId) {
         require(!transactions[_txId].executed, "already executed");
+        _;
     }
 
     constructor(address[] memory _owners, uint256 _requiredApprovals) {
         require(_owners.length > 0, "owners required");
-        require(_required > 0 && _required <= _owners.length, "invalid required number of owners");
+        require(_requiredApprovals > 0 && _requiredApprovals <= _owners.length, "invalid required number of owners");
 
         for (uint256 i; i < _owners.length; i++) {
             address owner = _owners[i];
@@ -68,15 +69,18 @@ contract MultiSigWallet {
 
     function approve(uint256 _txId) external onlyOwner txExists(_txId) notApproved(_txId) notExecuted(_txId) {
         approved[_txId][msg.sender] = true;
-        emit Approved(msg.sender, _txId);
+        emit Approve(msg.sender, _txId);
     }
 
     function _getApprovalCount(uint256 _txId) private view returns (uint256) {
-        for (uint256 i; i < _owners.length; i++) {
+        uint256 count;
+        for (uint256 i; i < owners.length; i++) {
             if (approved[_txId][owners[i]]) {
                 count += 1;
             }
         }
+
+        return count;
     }
 
     function execute(uint256 _txId) external txExists(_txId) notExecuted(_txId) {
