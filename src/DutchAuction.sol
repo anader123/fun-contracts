@@ -4,46 +4,51 @@ pragma solidity ^0.8.10;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract DutchAuction {
-    uint256 private constant DURATION = 7 days;
+    event AuctionCreated(address indexed nftAddress, uint256 indexed tokenId, uint256 indexed endAt);
+    event TokenPurchased(address indexed nftAddress, uint256 indexed tokenId, uint256 indexed price);
 
-    IERC721 public immutable nft;
-    uint256 public immutable tokenId;
-
-    address public immutable seller;
-    uint256 public immutable startingPrice;
-    uint256 public immutable startAt;
-    uint256 public immutable endAt;
-    uint256 public immutable discountRate;
-
-    constructor(uint256 _startingPrice, uint256 _discountRate, address _nft, uint256 _tokenId) {
-        seller = payable(msg.sender);
-        startingPrice = _startingPrice;
-        discountRate = _discountRate;
-        startAt = block.timestamp;
-        endAt = block.timestamp + DURATION;
-
-        require(_startingPrice >= _discountRate * DURATION, "starting price < discount");
-        nft = IERC721(_nft);
-        tokenId = _tokenId;
+    struct Auction {
+        address seller;
+        uint256 startingPrice;
+        uint256 startAt;
+        uint256 endAt;
+        uint256 discountRate;
     }
 
-    function getPrice() public view returns (uint256) {
-        uint256 timeElapsed = block.timestamp - startAt;
-        uint256 discount = discountRate * timeElapsed;
-        return startingPrice - discount;
+    mapping(address => mapping(uint256 => Auction)) public auctions;
+
+    function getPrice(address nftAddress, uint256 tokenId) public view returns (uint256) {
+        Auction memory auction = auctions[nftAddress][tokenId];
+        uint256 timeElapsed = block.timestamp - auction.startAt;
+        uint256 discount = auction.discountRate * timeElapsed;
+        return auction.startingPrice - discount;
     }
 
-    function buy() external payable {
-        require(block.timestamp < endAt, "aunction expired");
+    function createAuction(address nftAddress, uint256 tokenId, Auction memory auction) external {
+        require(msg.sender == auction.seller, "seller must call the function");
+        require(auction.endAt > auction.startAt, "invalid start time");
+        require(auction.endAt > block.timestamp, "invalid end time");
 
-        uint256 price = getPrice();
+        auctions[nftAddress][tokenId] = auction;
+        emit AuctionCreated(nftAddress, tokenId, auction.endAt);
+    }
+
+    function buy(address nftAddress, uint256 tokenId) external payable {
+        Auction memory auction = auctions[nftAddress][tokenId];
+
+        require(block.timestamp < auction.endAt, "aunction expired");
+
+        uint256 price = getPrice(nftAddress, tokenId);
         require(msg.value >= price, "ETH < price");
 
-        nft.transferFrom(seller, msg.sender, tokenId);
+        IERC721 nft = IERC721(nftAddress);
+        nft.transferFrom(auction.seller, msg.sender, tokenId);
         uint256 refund = msg.value - price;
 
         if (refund > 0) {
             payable(msg.sender).transfer(refund);
         }
+
+        emit TokenPurchased(nftAddress, tokenId, price);
     }
 }
