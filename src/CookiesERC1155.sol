@@ -7,11 +7,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice Token URI called for NonexistentToken
 error URIQueryForNonexistentToken();
 
+/// @notice Sale is not open for a given tokens
 error TokenSaleNotOpen();
 
+/// @notice Not enough value included in the transaction
 error NotEnoughValue();
 
+/// @notice Token has been locked and can't be minted again
 error TokenIsLocked();
+
+/// @notice Batch Minting args don't match up
+error InvalidBatchMintingArgs();
 
 contract CookiesERC1155 is ERC1155, Ownable {
     event TokenDetailsUpdated(
@@ -31,7 +37,7 @@ contract CookiesERC1155 is ERC1155, Ownable {
 
     constructor() ERC1155("") Ownable(msg.sender) {}
 
-    function mint(uint256 tokenId, uint256 quantity, address recipient) external payable {
+    function isMintable(uint256 tokenId, uint256 quantity) internal view returns (bool) {
         if (msg.value < tokenDetails[tokenId].price * quantity) {
             revert NotEnoughValue();
         }
@@ -44,7 +50,25 @@ contract CookiesERC1155 is ERC1155, Ownable {
             revert TokenIsLocked();
         }
 
-        _mint(recipient, tokenId, quantity, "");
+        return true;
+    }
+
+    function mint(uint256 tokenId, uint256 quantity, address recipient) external payable {
+        if (isMintable(tokenId, quantity)) {
+            _mint(recipient, tokenId, quantity, "");
+        }
+    }
+
+    function batchMint(address recipient, uint256[] calldata ids, uint256[] calldata quantities) external payable {
+        if (ids.length != quantities.length) {
+            revert InvalidBatchMintingArgs();
+        }
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            isMintable(ids[i], quantities[i]);
+        }
+
+        _mintBatch(recipient, ids, quantities, "");
     }
 
     function uri(uint256 tokenId) public view override returns (string memory) {
