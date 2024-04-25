@@ -3,76 +3,91 @@ pragma solidity ^0.8.10;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-
 contract HighestPriceAuction {
-    event Start();
-    event Bid(address index sender, uint256 amount);
-    event Withdraw(address indexed bidder, uint256 amount);
-    event End(address highestBidder, uint256 amount);
+    event Created(uint256 indexed auctionId, address nftAddress, uint256 tokenId);
+    event Start(uint256 indexed auctionId);
+    event Bid(uint256 indexed auctionId, address sender, uint256 amount);
+    event End(uint256 indexed auctionId, address highestBidder, uint256 amount);
 
-    IERC721 public immutable nft;
-    uint256 public immutable tokenId;
+    uint256 private _auctionId;
 
-    address payable public immutable seller;
-    uint32 public endAt;
-    bool public started;
-    uint256 public highestBidder;
-    uint256 public highestBid;
-    mapping(address => uint256) public bids;
-
-    constructor(
-        address _nft,
-        uint256 _tokenId,
-        uint256 _startingBid
-    ) {
-        nft = IERC721(_nft);
-        tokenId = _tokenId;
-        seller = payable(msg.sender);
-        highestBid = _startingBid;
+    struct Auction {
+        address seller;
+        address nftAddress;
+        uint256 tokenId;
+        uint32 endAt;
+        bool started;
+        bool ended;
+        address highestBidder;
+        uint256 highestBid;
     }
 
-    function start() external {
-        require(msg.sender == seller, "not seller");
-        require(!started, "started");
+    mapping(uint256 => Auction) public auctions;
 
-        started = true;
-        endAt = uint32(block.timestamp + 7 days);
-        nft.transferFrom(seller, address(this), tokenId);
+    function createAuction(address nftAddress, uint256 tokenId, uint32 endAt) public {
+        uint256 currentAuctionId = _auctionId;
+        auctions[currentAuctionId] = Auction({
+            seller: msg.sender,
+            nftAddress: nftAddress,
+            tokenId: tokenId,
+            endAt: endAt,
+            started: false,
+            ended: false,
+            highestBidder: address(0),
+            highestBid: 0
+        });
 
-        emit Start();
+        _auctionId++;
+        emit Created(currentAuctionId, nftAddress, tokenId);
     }
 
-    function bid() external payable {
-        require(started, "not started");
-        require(block.timestamp < endAt, "ended");
-        require(msg.value > highestBid, "value < highest bid");
+    function start(uint256 auctionId, uint256 duration) external {
+        Auction storage auction = auctions[auctionId];
 
-        highestBid = msg.value;
-        highestBidder = msg.sender;
+        require(msg.sender == auction.seller, "not seller");
+        require(!auction.started, "started");
+
+        auction.started = true;
+        auction.endAt = uint32(block.timestamp + duration);
+
+        IERC721 nft = IERC721(auction.nftAddress);
+        nft.transferFrom(auction.seller, address(this), auction.tokenId);
+
+        emit Start(auctionId);
     }
 
-    function withdraw() external {
-        uint256 bal = bids[msg.sender];
-        bids[msg.sender] = 0;
-        payable(msg.sender).transafer(bal);
+    function bid(uint256 auctionId) external payable {
+        Auction storage auction = auctions[auctionId];
 
-        emit Withdaw(msg.sender, bal);
+        require(auction.started, "not started");
+        require(block.timestamp < auction.endAt, "ended");
+        require(msg.value > auction.highestBid, "value < highest bid");
+
+        payable(auction.highestBidder).transfer(auction.highestBid);
+
+        auction.highestBidder = msg.sender;
+        auction.highestBid = msg.value;
+
+        emit Bid(auctionId, msg.sender, msg.value);
     }
 
-    function end() external {
-        require(started, "not started");
-        require(!ended, "ended");
-        require(block.timestamp >= endAt, "not ended");
+    function end(uint256 auctionId) external {
+        Auction storage auction = auctions[auctionId];
         
-        ended = true;
+        require(auction.started, "not started");
+        require(!auction.ended, "ended");
+        require(block.timestamp >= auction.endAt, "not ended");
 
-        if(highestBidder != address(0)){
-            nft.transferFrom(address(this), highestBidder, tokenId);
-            seller.transfer(highestBid);
-        } else {            
-            nft.transferFrom(address(this), seller, tokenId);
+        auction.ended = true;
+        IERC721 nft = IERC721(auction.nftAddress);
+
+        if (auction.highestBidder != address(0)) {
+            nft.transferFrom(address(this), auction.highestBidder, auction.tokenId);
+            payable(auction.seller).transfer(auction.highestBid);
+        } else {
+            nft.transferFrom(address(this), auction.seller, auction.tokenId);
         }
-        
-        emit End(highestBidder, highestBid);
+
+        emit End(auctionId, auction.highestBidder, auction.highestBid);
     }
 }
