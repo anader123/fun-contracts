@@ -73,7 +73,7 @@ contract HighestPriceAuction {
 
     function end(uint256 auctionId) external {
         Auction storage auction = auctions[auctionId];
-        
+
         require(auction.started, "not started");
         require(!auction.ended, "ended");
         require(block.timestamp >= auction.endAt, "not ended");
