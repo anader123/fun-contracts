@@ -24,7 +24,7 @@ contract HighestPriceAuction {
 
     mapping(uint256 => Auction) public auctions;
 
-    function createAuction(address nftAddress, uint256 tokenId, uint32 endAt) public {        
+    function createAuction(address nftAddress, uint256 tokenId, uint32 endAt) public {
         uint256 currentAuctionId = _auctionId;
         auctions[currentAuctionId] = Auction({
             seller: msg.sender,
@@ -75,7 +75,7 @@ contract HighestPriceAuction {
         require(auction.started, "not started");
         require(!auction.ended, "ended");
         require(block.timestamp >= auction.endAt, "not ended");
-        
+
         auction.ended = true;
         IERC721 nft = IERC721(auction.nftAddress);
 

@@ -25,6 +25,7 @@ contract DutchAuction {
     }
 
     function createAuction(address nftAddress, uint256 tokenId, Auction memory auction) external {
+        require(auctions[nftAddress][tokenId].seller == address(0), "auction created");
         require(msg.sender == auction.seller, "seller must call the function");
         require(auction.endAt > auction.startAt, "invalid start time");
         require(auction.endAt > block.timestamp, "invalid end time");
@@ -48,6 +49,8 @@ contract DutchAuction {
         if (refund > 0) {
             payable(msg.sender).transfer(refund);
         }
+
+        delete auctions[nftAddress][tokenId];
 
         emit TokenPurchased(nftAddress, tokenId, price);
     }

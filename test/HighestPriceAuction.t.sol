@@ -26,7 +26,7 @@ contract HighestPriceAuctionTest is Test {
         nftContract.mint();
 
         highestPriceAuction.createAuction(address(nftContract), 2, uint32(block.timestamp + 1 days));
-        (address seller , , , , , , , ) = highestPriceAuction.auctions(1);
+        (address seller,,,,,,,) = highestPriceAuction.auctions(1);
 
         assertEq(seller, address(777));
         vm.stopPrank();
@@ -38,12 +38,12 @@ contract HighestPriceAuctionTest is Test {
     }
 
     function testBid() public {
-        (, , , , , , address highestBidder1 , ) = highestPriceAuction.auctions(0);
+        (,,,,,, address highestBidder1,) = highestPriceAuction.auctions(0);
         assertEq(highestBidder1, address(0));
 
         hoax(address(321), 1 ether);
         highestPriceAuction.bid{value: 1 ether}(0);
-        (, , , , , , address highestBidder2 , ) = highestPriceAuction.auctions(0);
+        (,,,,,, address highestBidder2,) = highestPriceAuction.auctions(0);
 
         assertEq(highestBidder2, address(321));
     }
@@ -70,5 +70,4 @@ contract HighestPriceAuctionTest is Test {
         address newOwner = nftContract.ownerOf(1);
         assertEq(newOwner, address(123));
     }
-
 }
