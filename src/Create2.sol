@@ -12,14 +12,7 @@ contract Create2Factory {
     }
 
     function getAddress(bytes memory bytecode, uint256 salt) public view returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                bytes1(0xff),
-                address(this),
-                salt,
-                keccak256(bytecode)
-            )
-        );
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode)));
         return address(uint160(uint256(hash)));
     }
 
@@ -27,16 +20,9 @@ contract Create2Factory {
         address addr;
 
         assembly {
-            addr := create2(
-                callvalue(),
-                add(bytecode, 0x20),
-                mload(bytecode),
-                salt
-            )
+            addr := create2(callvalue(), add(bytecode, 0x20), mload(bytecode), salt)
 
-            if iszero(extcodesize(addr)) {
-                revert(0,0)
-            }
+            if iszero(extcodesize(addr)) { revert(0, 0) }
         }
         emit Deployed(addr, salt);
     }

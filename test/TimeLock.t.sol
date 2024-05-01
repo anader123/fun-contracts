@@ -5,7 +5,6 @@ import {Test, console} from "forge-std/Test.sol";
 import {Test721} from "../src/Test721.sol";
 import {TimeLock} from "../src/TimeLock.sol";
 
-
 contract TimeLockTest is Test {
     Test721 public nftContract;
     TimeLock public timeLock;
@@ -64,7 +63,7 @@ contract TimeLockTest is Test {
 
     function testFailCancelNoExecute() public {
         vm.startPrank(address(123));
-        
+
         bytes32 txId = timeLock.getTxId(address(nftContract), 0, MINT_DATA, START_TIME);
         timeLock.cancel(txId);
         timeLock.execute(address(nftContract), 0, MINT_DATA, START_TIME);
@@ -78,5 +77,4 @@ contract TimeLockTest is Test {
         timeLock.cancel(txId);
         vm.stopPrank();
     }
-
 }

@@ -4,7 +4,6 @@ import {Test, console} from "forge-std/Test.sol";
 import {Create2Factory} from "../src/Create2.sol";
 import {Test721} from "../src/Test721.sol";
 
-
 contract TestCreate2 is Test {
     Create2Factory public create2Factory;
     Test721 public nftContract;
