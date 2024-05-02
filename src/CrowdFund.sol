@@ -87,8 +87,8 @@ contract CrowdFund {
     function claim(uint256 id) external {
         Campaign storage campaign = campaigns[id];
         require(msg.sender == campaign.creator, "not created");
-        require(campaign.endAt > block.timestamp, "not ended");
-        require(campaign.pledged >= campaign.goal, "pledged > goal");
+        require(campaign.endAt < block.timestamp, "not ended");
+        require(campaign.pledged >= campaign.goal, "pledged < goal");
         require(!campaign.claimed, "claimed");
 
         campaign.claimed = true;
