@@ -10,7 +10,7 @@ contract Escrow {
     event SaleFilled(
         address indexed seller, address buyer, address houseToken, uint256 houseTokenId, uint256 price, uint256 saleId
     );
-    event SaleCanceled(uint indexed saleId);
+    event SaleCanceled(uint256 indexed saleId);
 
     uint256 public counterId;
 
@@ -39,6 +39,8 @@ contract Escrow {
         Property memory currentProperty = sales[saleId];
         require(msg.sender == currentProperty.seller, "not the seller");
         require(msg.sender == property.seller, "invalid seller set");
+
+        sales[saleId] = property;
 
         emit SaleUpdated(property.seller, property.houseToken, property.houseTokenId, property.price, saleId);
     }
