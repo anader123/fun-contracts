@@ -14,15 +14,13 @@ error TokenSaleNotOpen();
 error NotEnoughValue();
 
 /// @notice Token has been locked and can't be minted again
-error TokenIsLocked();
+error TokenIsLocked(uint256 tokenId);
 
 /// @notice Batch Minting args don't match up
 error InvalidBatchMintingArgs();
 
 contract CookiesERC1155 is ERC1155, Ownable {
-    event TokenDetailsUpdated(
-        uint256 indexed tokenId, uint256 indexed startTime, uint256 indexed endTime, string uri, uint256 price
-    );
+    event TokenDetailsUpdated(uint256 indexed tokenId, uint256 startTime, uint256 endTime, string uri, uint256 price);
     event TokenLocked(uint256 tokenId);
 
     struct Token {
@@ -33,27 +31,26 @@ contract CookiesERC1155 is ERC1155, Ownable {
         bool locked;
     }
 
-    mapping(uint256 => Token) private tokenDetails;
+    mapping(uint256 => Token) public tokenDetails;
 
     constructor() ERC1155("") Ownable(msg.sender) {}
 
     function isMintable(uint256 tokenId, uint256 quantity) internal view returns (bool) {
-        if (msg.value < tokenDetails[tokenId].price * quantity) {
-            revert NotEnoughValue();
-        }
-
-        if (tokenDetails[tokenId].startTime < block.timestamp || tokenDetails[tokenId].endTime > block.timestamp) {
+        if (tokenDetails[tokenId].startTime > block.timestamp || tokenDetails[tokenId].endTime < block.timestamp) {
             revert TokenSaleNotOpen();
         }
 
         if (tokenDetails[tokenId].locked) {
-            revert TokenIsLocked();
+            revert TokenIsLocked(tokenId);
         }
 
         return true;
     }
 
     function mint(uint256 tokenId, uint256 quantity, address recipient) external payable {
+        if (msg.value != tokenDetails[tokenId].price * quantity) {
+            revert NotEnoughValue();
+        }
         if (isMintable(tokenId, quantity)) {
             _mint(recipient, tokenId, quantity, "");
         }
@@ -64,8 +61,15 @@ contract CookiesERC1155 is ERC1155, Ownable {
             revert InvalidBatchMintingArgs();
         }
 
+        uint256 requiredValue;
+
         for (uint256 i = 0; i < ids.length; i++) {
             isMintable(ids[i], quantities[i]);
+            requiredValue += tokenDetails[ids[i]].price * quantities[i];
+        }
+
+        if (msg.value != requiredValue) {
+            revert NotEnoughValue();
         }
 
         _mintBatch(recipient, ids, quantities, "");
@@ -80,6 +84,10 @@ contract CookiesERC1155 is ERC1155, Ownable {
     }
 
     function setTokenDetails(uint256 tokenId, Token memory token) external onlyOwner {
+        if (tokenDetails[tokenId].locked) {
+            revert TokenIsLocked(tokenId);
+        }
+
         tokenDetails[tokenId] = token;
         if (token.locked) {
             emit TokenLocked(tokenId);
